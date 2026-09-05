@@ -1,0 +1,149 @@
+# Original code is designed to work with a 3-speed fan.
+# In my home t=he fan is 2-speed (2 gears). Because there is no need to use, present in HA a 3rd interface
+# I changed the code accordingly.
+# 3-speed is disabled
+
+substitutions:
+  devicename: fan-fireplace
+  version: "1.0"
+
+esphome:
+  name: ${devicename}
+  friendly_name: "Fireplace ventilator"
+
+esp8266:
+  board: esp01_1m
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: "uykUqYA1dAvS/FBXd2DbCjlU1HevArnj3BO0nyue6ak="
+
+ota:
+  password: "4f1b864b39ac02db473fd62d0f9f458a"
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Fan Fallback Hotspot"
+    password: "iYZ1o8BoaAzV"
+
+captive_portal:
+
+sensor:
+- platform: adc
+  pin: VCC
+  name: "ESP8266 Chip Voltage"
+  id: mcu_voltage
+  unit_of_measurement: "V"
+  device_class: "voltage"
+  accuracy_decimals: 2
+  update_interval: 60s
+
+- platform: wifi_signal
+  name: "WiFi Signal Sensor"
+  id: wifi_strength
+  device_class: "signal_strength"
+  unit_of_measurement: "dBm"
+  update_interval: 240s
+
+binary_sensor:
+- platform: gpio
+  pin:
+   number: 12
+   inverted: true
+  name: "Fan Local Control Speed 1"
+  id: "fan_local_1"
+  icon: "mdi:fan-speed-1"
+  filters:
+   - delayed_on: 500ms
+   - delayed_off: 500ms
+  on_press:
+   then:
+    - switch.turn_on: speed1
+  on_release:
+   then:
+    - switch.turn_off: speed1
+
+- platform: gpio
+  pin:
+   number: 13
+   inverted: true
+  name: "Fan Local Control Speed 2"
+  id: "fan_local_2"
+  icon: "mdi:fan-speed-2"
+  filters:
+   - delayed_on: 500ms
+   - delayed_off: 500ms
+  on_press:
+   then:
+    - switch.turn_on: speed2
+  on_release:
+   then:
+    - switch.turn_off: speed2
+
+#- platform: gpio
+#  pin:
+#   number: 14
+#   inverted: true
+#  name: "Fan Local Control Speed 3"
+#  id: "fan_local_3"
+#  icon: "mdi:fan-speed-3"
+#  filters:
+#   - delayed_on: 500ms
+#   - delayed_off: 500ms
+#  on_press:
+#   then:
+#    - switch.turn_on: speed3
+#  on_release:
+#   then:
+#    - switch.turn_off: speed3
+
+switch:
+  - platform: template
+    name: "Fan Off"
+    id: "fan_off"
+    icon: "mdi:fan-off"
+    lambda: |-
+      if (id(speed1).state or id(speed2).state) {
+       return false;
+       } else {
+       return true;
+      }
+
+    turn_on_action:
+     - switch.turn_off: speed1
+     - switch.turn_off: speed2
+
+  - platform: gpio
+    pin: 16
+    interlock: &interlock_group [speed1, speed2]
+    interlock_wait_time: 1000ms
+    name: "Fan Speed 1"
+    icon: "mdi:fan-speed-1"
+    id: "speed1"
+    inverted: true
+
+  - platform: gpio
+    pin: 5
+    interlock: *interlock_group
+    interlock_wait_time: 1000ms
+    name: "Fan Speed 2"
+    icon: "mdi:fan-speed-2"
+    id: "speed2"
+    inverted: true
+
+ # - platform: gpio
+ #   pin: 4
+ #   interlock: *interlock_group
+ #   interlock_wait_time: 1000ms
+ #   name: "Fan Speed 3"
+ #   icon: "mdi:fan-speed-3"
+ #   id: "speed3"
+ #   inverted: true
